@@ -1,0 +1,6 @@
+Explain the following gen alpha slang expression to someone unfamiliar with it.
+ 
+Expression: "{expression}"
+Example usage: "{context}"
+ 
+Keep your explanation clear and concise.

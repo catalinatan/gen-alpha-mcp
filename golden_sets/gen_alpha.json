@@ -1,0 +1,185 @@
+[
+  {
+    "id": "ga_001",
+    "expression": "no cap",
+    "context": "bro actually finished the whole pizza no cap",
+    "target_audience": "parent trying to understand their teenager",
+    "criteria": [
+      "correctly defines as 'not lying' or 'for real'",
+      "does not confuse with a physical cap or hat",
+      "gives a natural rephrasing of the example sentence",
+      "tone is helpful not condescending"
+    ]
+  },
+  {
+    "id": "ga_002",
+    "expression": "what the sigma",
+    "context": "he just started reorganising the entire office layout by himself — what the sigma",
+    "target_audience": "colleague who saw it in a work group chat",
+    "criteria": [
+      "explains it is a gen alpha replacement for 'what the hell' or 'what on earth'",
+      "conveys it expresses surprise or bewilderment, not necessarily negative",
+      "notes it is a deliberate meme substitution of a swear word",
+      "does not attempt to explain sigma as a personality type in this context"
+    ]
+  },
+  {
+    "id": "ga_003",
+    "expression": "sigma",
+    "context": "he doesn't care what anyone thinks, just locks in and gets it done — total sigma",
+    "target_audience": "manager trying to understand why their team keeps calling a quiet colleague this",
+    "criteria": [
+      "explains sigma as self-sufficient, independent, and unbothered by social validation",
+      "distinguishes it from alpha — sigma is not about dominance but indifference to the hierarchy entirely",
+      "correctly reads the context as a compliment",
+      "does not reduce it to just introvert — quiet confidence and competence must come through"
+    ]
+  },
+  {
+    "id": "ga_004",
+    "expression": "skibidi toilet",
+    "context": "my little brother watches skibidi toilet for hours, what even is that",
+    "target_audience": "older sibling or parent with no context",
+    "criteria": [
+      "explains it is a YouTube/internet series featuring toilets with human heads",
+      "conveys it is intentionally absurd and the appeal is the absurdity itself",
+      "does not try to assign deeper meaning where there is none",
+      "reassures the reader it is harmless internet humour popular with younger kids"
+    ]
+  },
+  {
+    "id": "ga_005",
+    "expression": "mogging",
+    "context": "she walked into the pitch and just mogged the entire room without saying a word",
+    "target_audience": "recruiter who saw it in a candidate review",
+    "criteria": [
+      "defines mogging as effortlessly outshining or overshadowing others",
+      "conveys it is used admiringly not aggressively",
+      "correctly reads this as a compliment about commanding presence",
+      "does not require knowledge of any prior internet subculture to understand"
+    ]
+  },
+  {
+    "id": "ga_006",
+    "expression": "rizz",
+    "context": "he walked in and immediately had the whole room — man's got rizz",
+    "target_audience": "general adult unfamiliar with gen alpha slang",
+    "criteria": [
+      "defines as natural charisma or ability to attract others effortlessly",
+      "explains it can be used as a noun or verb",
+      "does not reduce it to just physical attractiveness",
+      "example usage in explanation is natural and accurate"
+    ]
+  },
+  {
+    "id": "ga_007",
+    "expression": "it's giving",
+    "context": "that presentation slide is giving 2009 PowerPoint",
+    "target_audience": "designer colleague who hasn't heard the phrase",
+    "criteria": [
+      "explains it means something strongly evokes or resembles something else",
+      "captures that it can be used positively or critically depending on context",
+      "correctly reads this example as mildly critical",
+      "does not over-explain or add unnecessary cultural history"
+    ]
+  },
+  {
+    "id": "ga_008",
+    "expression": "NPC",
+    "context": "stop being such an NPC and make your own decisions for once",
+    "target_audience": "manager who heard it used about a colleague",
+    "criteria": [
+      "explains NPC stands for non-playable character from video games",
+      "correctly defines it here as calling someone passive or lacking independent thought",
+      "notes it is being used as a mild insult in this context",
+      "does not require gaming knowledge from the reader to understand the explanation"
+    ]
+  },
+  {
+    "id": "ga_009",
+    "expression": "understood the assignment",
+    "context": "she showed up to the costume party in full armour — she understood the assignment",
+    "target_audience": "HR manager who saw it in a Slack channel",
+    "criteria": [
+      "explains it means someone fully committed to what was expected and delivered perfectly",
+      "conveys it is a strong compliment",
+      "clarifies it is not literally about an assignment or homework",
+      "gives a workplace-appropriate equivalent phrase"
+    ]
+  },
+  {
+    "id": "ga_010",
+    "expression": "ate and left no crumbs",
+    "context": "her keynote speech? she ate and left no crumbs",
+    "target_audience": "colleague who read it in a post-event debrief",
+    "criteria": [
+      "explains it means someone performed exceptionally and flawlessly",
+      "makes clear it has nothing to do with food",
+      "conveys strong admiration",
+      "accurately rephrases the example in plain english"
+    ]
+  },
+  {
+    "id": "ga_011",
+    "expression": "touch grass",
+    "context": "you've been arguing about this game for six hours straight, go touch grass",
+    "target_audience": "parent who saw it in their child's group chat",
+    "criteria": [
+      "explains it means go outside or take a break from screens",
+      "conveys it is used as mild mockery or friendly advice",
+      "correctly reads the context as telling someone to step away and get perspective",
+      "does not interpret it as threatening or seriously rude"
+    ]
+  },
+  {
+    "id": "ga_012",
+    "expression": "main character energy",
+    "context": "she walked into the interview like she already had the job — total main character energy",
+    "target_audience": "recruiter reading candidate feedback",
+    "criteria": [
+      "explains it means behaving as if you are the confident protagonist of your own story",
+      "conveys it is generally used as a compliment meaning self-assured and decisive",
+      "does not conflate it with arrogance or self-absorption",
+      "correctly reads the interview example as a positive observation"
+    ]
+  },
+  {
+    "id": "ga_013",
+    "expression": "delulu",
+    "context": "she genuinely thinks she's getting promoted after three months — she's so delulu",
+    "target_audience": "friend group chat observer who doesn't know the word",
+    "criteria": [
+      "explains delulu is a playful shortening of delusional",
+      "conveys it is used to describe someone with unrealistic expectations or hopes",
+      "captures that it is often used affectionately or with light mockery rather than as a serious insult",
+      "correctly reads the context as gently mocking the person's optimism",
+      "notes the word can also be used self-deprecatingly as in 'i know i'm being delulu but'"
+    ]
+  },
+  {
+    "id": "ga_014",
+    "expression": "slay",
+    "context": "she walked out in that outfit and absolutely slayed",
+    "target_audience": "parent who heard their teenager say it about a celebrity",
+    "criteria": [
+      "explains slay means to perform, look, or do something impressively and confidently",
+      "conveys it is an enthusiastic compliment",
+      "notes it has roots in LGBTQ+ and ballroom culture before entering mainstream gen alpha usage",
+      "does not over-explain the cultural history at the expense of the simple definition",
+      "correctly reads the example as a style or confidence compliment"
+    ]
+  },
+  {
+    "id": "ga_015",
+    "expression": "lock in",
+    "context": "exams are next week, it's time to lock in",
+    "target_audience": "teacher who keeps hearing students say this before revision season",
+    "criteria": [
+      "explains lock in means to focus completely, eliminate distractions, and commit to a task",
+      "conveys it carries a tone of serious intentional effort — more intense than just 'concentrate'",
+      "correctly reads the academic context as motivational not negative",
+      "notes it can be used as self-directed encouragement or directed at others",
+      "does not confuse with the literal meaning of being locked inside somewhere"
+    ]
+  }
+]

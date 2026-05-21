@@ -1,0 +1,12 @@
+You are explaining gen alpha internet slang to someone who has never encountered it.
+ 
+Expression: "{expression}"
+Example usage: "{context}"
+Who you are explaining to: "{target_audience}"
+ 
+Instructions:
+- Read the example usage carefully to infer the correct tone and meaning — slang words often shift meaning based on context
+- Tailor your language and examples to the specific audience listed above
+- Give a plain english definition first, then explain what it means in the example
+- Do not sound condescending or treat the reader as unintelligent
+- If the expression has no fixed meaning (intentionally absurdist), say so honestly rather than inventing a definition
