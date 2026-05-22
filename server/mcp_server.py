@@ -1,31 +1,15 @@
-import datetime
 import json
 import re
-import sqlite_utils
 from mcp.server.fastmcp import FastMCP
 from pathlib import Path
+from gab.store import ResultStore
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 GOLDEN_SETS_DIR = ROOT_DIR / "golden_sets"
-DB_PATH = ROOT_DIR / "results.db"
 DATASET_NAME_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 mcp = FastMCP("golden-set-server")
-db = sqlite_utils.Database(DB_PATH)
-
-
-def ensure_results_table() -> None:
-    """Create the results table before the first insert/query."""
-    db["results"].create(
-        {
-            "version": str,
-            "case_id": str,
-            "score": int,
-            "reasoning": str,
-            "run_at": str,
-        },
-        if_not_exists=True,
-    )
+_store = ResultStore()
 
 
 def dataset_path(dataset: str) -> Path:
@@ -48,22 +32,12 @@ def get_test_cases(dataset: str) -> list[dict]:
 @mcp.tool()
 def save_result(version: str, case_id: str, score: int, reasoning: str) -> None:
     """Save an eval result to the database"""
-    ensure_results_table()
-    db["results"].insert({
-        "version": version,
-        "case_id": case_id,
-        "score": score,
-        "reasoning": reasoning,
-        "run_at": datetime.datetime.now(datetime.UTC).isoformat()
-    })
+    _store.save(version=version, case_id=case_id, score=score, reasoning=reasoning)
 
 @mcp.tool()
 def get_leaderboard() -> list[dict]:
     """Return average scores per prompt version"""
-    ensure_results_table()
-    return list(db.query(
-        "SELECT version, AVG(score) as avg_score, COUNT(*) as cases FROM results GROUP BY version ORDER BY avg_score DESC"
-    ))
+    return _store.leaderboard()
 
 
 if __name__ == "__main__":

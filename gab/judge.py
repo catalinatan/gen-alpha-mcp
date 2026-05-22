@@ -49,9 +49,13 @@ Return only valid JSON with this shape:
 
 def _response_text(response) -> str:
     return "".join(
-        block.text
+        block.get("text", "") if isinstance(block, dict) else block.text
         for block in response.content
-        if getattr(block, "type", None) == "text" and hasattr(block, "text")
+        if (
+            isinstance(block, dict) and block.get("type") == "text"
+        ) or (
+            getattr(block, "type", None) == "text" and hasattr(block, "text")
+        )
     ).strip()
 
 
@@ -86,7 +90,7 @@ def judge(
     output: str,
 ) -> JudgeResult:
     response = get_client().messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-6",
         max_tokens=500,
         messages=[{
             "role": "user",

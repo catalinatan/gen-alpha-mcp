@@ -1,16 +1,14 @@
 import json
-import re
 from pathlib import Path
 from string import Formatter
 from typing import Any
 
 from gab.judge import judge
+from gab.store import validate_version, ResultStore
 
 client: Any | None = None
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-RUNS_DIR = ROOT_DIR / "runs"
-VERSION_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
 
 
 def get_client() -> Any:
@@ -42,9 +40,13 @@ def render_prompt(template: str, case: dict) -> str:
 
 def _response_text(response) -> str:
     return "".join(
-        block.text
+        block.get("text", "") if isinstance(block, dict) else block.text
         for block in response.content
-        if getattr(block, "type", None) == "text" and hasattr(block, "text")
+        if (
+            isinstance(block, dict) and block.get("type") == "text"
+        ) or (
+            getattr(block, "type", None) == "text" and hasattr(block, "text")
+        )
     ).strip()
 
 
@@ -60,17 +62,9 @@ def resolve_input_path(path: str) -> Path:
     return candidate
 
 
-def save_run(version: str, results: list[dict], output_dir: Path = RUNS_DIR) -> Path:
-    if not VERSION_RE.fullmatch(version):
-        raise ValueError("Version may only contain letters, numbers, '.', '_' and '-'.")
-
-    output_dir.mkdir(exist_ok=True)
-    path = output_dir / f"{version}.json"
-    path.write_text(json.dumps(results, indent=2), encoding="utf-8")
-    return path
-
-
 def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]:
+    validate_version(version)
+
     golden = json.loads(resolve_input_path(golden_set_path).read_text(encoding="utf-8"))
     if not isinstance(golden, list):
         raise ValueError("Golden set must be a JSON array of test cases.")
@@ -90,7 +84,7 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
         filled_prompt = render_prompt(prompt_template, case)
 
         response = get_client().messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=1000,
             messages=[{"role": "user", "content": filled_prompt}]
         )
@@ -113,5 +107,7 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
             "criteria_failed": judgment.criteria_failed,
         })
 
-    save_run(version, results)
+    store = ResultStore()
+    for result in results:
+        store.save(version=version, case_id=result["id"], score=result["score"], reasoning=result["reasoning"])
     return results
