@@ -4,7 +4,7 @@ from string import Formatter
 from typing import Any
 
 from gab.judge import judge
-from gab.store import validate_version, ResultStore
+from gab.store import ResultStore, validate_version
 
 client: Any | None = None
 
@@ -33,7 +33,10 @@ def render_prompt(template: str, case: dict) -> str:
     }
     missing = sorted(field for field in fields if field not in case)
     if missing:
-        raise KeyError(f"Golden set case {case.get('id', '<unknown>')} is missing fields: {', '.join(missing)}")
+        raise KeyError(
+            f"Golden set case {case.get('id', '<unknown>')} "
+            f"is missing fields: {', '.join(missing)}"
+        )
 
     return template.format_map(SafeFormatDict(case))
 
@@ -42,11 +45,8 @@ def _response_text(response) -> str:
     return "".join(
         block.get("text", "") if isinstance(block, dict) else block.text
         for block in response.content
-        if (
-            isinstance(block, dict) and block.get("type") == "text"
-        ) or (
-            getattr(block, "type", None) == "text" and hasattr(block, "text")
-        )
+        if (isinstance(block, dict) and block.get("type") == "text")
+        or (getattr(block, "type", None) == "text" and hasattr(block, "text"))
     ).strip()
 
 
@@ -86,7 +86,7 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
         response = get_client().messages.create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
-            messages=[{"role": "user", "content": filled_prompt}]
+            messages=[{"role": "user", "content": filled_prompt}],
         )
         output = _response_text(response)
 
@@ -95,19 +95,26 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
             context=case["context"],
             target_audience=case["target_audience"],
             criteria=case["criteria"],
-            output=output
+            output=output,
         )
-        results.append({
-            "id": case["id"],
-            "expression": case["expression"],
-            "output": output,
-            "score": judgment.score,
-            "reasoning": judgment.reasoning,
-            "criteria_met": judgment.criteria_met,
-            "criteria_failed": judgment.criteria_failed,
-        })
+        results.append(
+            {
+                "id": case["id"],
+                "expression": case["expression"],
+                "output": output,
+                "score": judgment.score,
+                "reasoning": judgment.reasoning,
+                "criteria_met": judgment.criteria_met,
+                "criteria_failed": judgment.criteria_failed,
+            }
+        )
 
     store = ResultStore()
     for result in results:
-        store.save(version=version, case_id=result["id"], score=result["score"], reasoning=result["reasoning"])
+        store.save(
+            version=version,
+            case_id=result["id"],
+            score=result["score"],
+            reasoning=result["reasoning"],
+        )
     return results

@@ -1,5 +1,7 @@
 from unittest.mock import patch
+
 from typer.testing import CliRunner
+
 from gab.cli import app
 from gab.store import ResultStore
 

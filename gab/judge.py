@@ -1,6 +1,7 @@
 import json
 import re
 from typing import Any
+
 from pydantic import BaseModel, Field
 
 client: Any | None = None
@@ -21,7 +22,9 @@ class JudgeResult(BaseModel):
     criteria_met: list[str] = Field(default_factory=list)
     criteria_failed: list[str] = Field(default_factory=list)
 
-JUDGE_PROMPT = """You are an impartial evaluator. Score the following AI output for a Gen Alpha slang explanation task.
+
+JUDGE_PROMPT = """You are an impartial evaluator. Score the following AI output \
+for a Gen Alpha slang explanation task.
 
 Expression: {expression}
 Example usage: {context}
@@ -47,15 +50,13 @@ Return only valid JSON with this shape:
   "criteria_failed": ["criterion text"]
 }}"""
 
+
 def _response_text(response) -> str:
     return "".join(
         block.get("text", "") if isinstance(block, dict) else block.text
         for block in response.content
-        if (
-            isinstance(block, dict) and block.get("type") == "text"
-        ) or (
-            getattr(block, "type", None) == "text" and hasattr(block, "text")
-        )
+        if (isinstance(block, dict) and block.get("type") == "text")
+        or (getattr(block, "type", None) == "text" and hasattr(block, "text"))
     ).strip()
 
 
@@ -79,7 +80,9 @@ def _parse_judge_result(text: str) -> JudgeResult:
         try:
             return validate_obj(json.loads(match.group(0)))
         except ValueError as exc:
-            raise ValueError(f"Judge response was not valid JudgeResult JSON: {text}") from exc
+            raise ValueError(
+                f"Judge response was not valid JudgeResult JSON: {text}"
+            ) from exc
 
 
 def judge(
@@ -92,15 +95,17 @@ def judge(
     response = get_client().messages.create(
         model="claude-sonnet-4-6",
         max_tokens=500,
-        messages=[{
-            "role": "user",
-            "content": JUDGE_PROMPT.format(
-                expression=expression,
-                context=context,
-                target_audience=target_audience,
-                criteria="\n".join(f"- {criterion}" for criterion in criteria),
-                output=output
-            )
-        }]
+        messages=[
+            {
+                "role": "user",
+                "content": JUDGE_PROMPT.format(
+                    expression=expression,
+                    context=context,
+                    target_audience=target_audience,
+                    criteria="\n".join(f"- {criterion}" for criterion in criteria),
+                    output=output,
+                ),
+            }
+        ],
     )
     return _parse_judge_result(_response_text(response))

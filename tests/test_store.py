@@ -1,4 +1,5 @@
 import pytest
+
 from gab.store import validate_version
 
 

@@ -1,6 +1,8 @@
-import pytest
 from pathlib import Path
-from gab.runner import render_prompt, _response_text, resolve_input_path
+
+import pytest
+
+from gab.runner import _response_text, render_prompt, resolve_input_path
 
 
 def test_render_prompt_fills_fields():

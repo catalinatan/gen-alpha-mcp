@@ -1,7 +1,11 @@
 import pytest
-from gab.judge import _parse_judge_result, JudgeResult
 
-_VALID = '{"score": 4, "reasoning": "solid", "criteria_met": ["clear"], "criteria_failed": []}'
+from gab.judge import JudgeResult, _parse_judge_result
+
+_VALID = (
+    '{"score": 4, "reasoning": "solid", '
+    '"criteria_met": ["clear"], "criteria_failed": []}'
+)
 
 
 def test_parse_clean_json():

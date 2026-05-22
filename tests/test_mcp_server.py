@@ -1,4 +1,5 @@
 import pytest
+
 from server.mcp_server import dataset_path
 
 
@@ -13,6 +14,7 @@ def test_dataset_path_accepts_valid_name_format(good, tmp_path, monkeypatch):
     # Point GOLDEN_SETS_DIR at tmp_path so the path resolves safely,
     # then place a dummy file so is_relative_to passes.
     import server.mcp_server as srv
+
     monkeypatch.setattr(srv, "GOLDEN_SETS_DIR", tmp_path)
     (tmp_path / f"{good}.json").write_text("[]")
     p = dataset_path(good)
