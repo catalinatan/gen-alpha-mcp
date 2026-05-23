@@ -2,7 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from gab.runner import _response_text, render_prompt, resolve_input_path
+from gab.runner import (
+    HAIKU,
+    SONNET,
+    _response_text,
+    estimate_cost_usd,
+    pick_model,
+    render_prompt,
+    resolve_input_path,
+)
 
 
 def test_render_prompt_fills_fields():
@@ -66,3 +74,45 @@ def test_resolve_input_path_existing(tmp_path):
 def test_resolve_input_path_returns_path_object():
     result = resolve_input_path("nonexistent.json")
     assert isinstance(result, Path)
+
+
+def _case(**overrides):
+    base = {
+        "expression": "no cap",
+        "target_audience": "parent",
+        "criteria": ["a", "b", "c", "d"],
+    }
+    base.update(overrides)
+    return base
+
+
+def test_pick_model_simple_case_uses_haiku():
+    assert pick_model(_case()) == HAIKU
+
+
+def test_pick_model_multiword_expression_uses_sonnet():
+    assert pick_model(_case(expression="what the sigma")) == SONNET
+
+
+def test_pick_model_many_criteria_uses_sonnet():
+    assert pick_model(_case(criteria=["a", "b", "c", "d", "e"])) == SONNET
+
+
+def test_pick_model_long_audience_uses_sonnet():
+    assert pick_model(_case(target_audience="x" * 60)) == SONNET
+
+
+def test_pick_model_handles_missing_fields():
+    assert pick_model({}) == HAIKU
+
+
+def test_estimate_cost_haiku_cheaper_than_sonnet():
+    haiku = estimate_cost_usd(HAIKU, 1000, 500)
+    sonnet = estimate_cost_usd(SONNET, 1000, 500)
+    assert haiku < sonnet
+    assert haiku == pytest.approx((1000 * 1.0 + 500 * 5.0) / 1_000_000)
+    assert sonnet == pytest.approx((1000 * 3.0 + 500 * 15.0) / 1_000_000)
+
+
+def test_estimate_cost_unknown_model_returns_zero():
+    assert estimate_cost_usd("claude-mystery-9", 1000, 500) == 0.0

@@ -43,3 +43,25 @@ def test_leaderboard_ordering_in_output(tmp_path):
 def test_run_no_golden_file_errors():
     result = runner.invoke(app, ["run", "v1", "--golden", "nonexistent.json"])
     assert result.exit_code != 0
+
+
+def test_leaderboard_show_cost_renders_cost_columns(tmp_path):
+    store = ResultStore(tmp_path / "test.db")
+    store.save("v1", "c1", 4, "good", cost_usd=0.01, input_tokens=100, output_tokens=50)
+    store.save("v1", "c2", 2, "meh", cost_usd=0.03, input_tokens=200, output_tokens=80)
+    with _patched_store(store):
+        result = runner.invoke(app, ["leaderboard", "--show-cost"])
+    assert result.exit_code == 0
+    assert "Total $" in result.output
+    assert "Score/$" in result.output
+    assert "$0.0400" in result.output
+
+
+def test_leaderboard_without_show_cost_hides_cost_columns(tmp_path):
+    store = ResultStore(tmp_path / "test.db")
+    store.save("v1", "c1", 4, "good", cost_usd=0.01)
+    with _patched_store(store):
+        result = runner.invoke(app, ["leaderboard"])
+    assert result.exit_code == 0
+    assert "Total $" not in result.output
+    assert "Score/$" not in result.output

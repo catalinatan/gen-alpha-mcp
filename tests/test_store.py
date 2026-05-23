@@ -1,6 +1,7 @@
 import pytest
+import sqlite_utils
 
-from gab.store import validate_version
+from gab.store import ResultStore, validate_version
 
 
 def test_validate_version_valid():
@@ -53,3 +54,82 @@ def test_leaderboard_aggregates(store):
 
 def test_leaderboard_empty(store):
     assert store.leaderboard() == []
+
+
+def test_save_persists_cost_columns(store):
+    store.save(
+        "v1",
+        "case-1",
+        4,
+        "good",
+        model_used="claude-haiku-4-5",
+        input_tokens=120,
+        output_tokens=80,
+        cost_usd=0.00052,
+    )
+    rows = store.results()
+    assert rows[0]["model_used"] == "claude-haiku-4-5"
+    assert rows[0]["input_tokens"] == 120
+    assert rows[0]["output_tokens"] == 80
+    assert rows[0]["cost_usd"] == pytest.approx(0.00052)
+
+
+def test_save_defaults_cost_columns_to_zero(store):
+    store.save("v1", "case-1", 4, "good")
+    rows = store.results()
+    assert rows[0]["model_used"] == ""
+    assert rows[0]["input_tokens"] == 0
+    assert rows[0]["output_tokens"] == 0
+    assert rows[0]["cost_usd"] == 0.0
+
+
+def test_leaderboard_aggregates_cost(store):
+    store.save("v1", "c1", 4, "good", cost_usd=0.01, input_tokens=100, output_tokens=50)
+    store.save("v1", "c2", 2, "meh", cost_usd=0.03, input_tokens=200, output_tokens=150)
+    board = store.leaderboard()
+    row = board[0]
+    assert row["total_cost_usd"] == pytest.approx(0.04)
+    assert row["avg_cost_usd"] == pytest.approx(0.02)
+    assert row["total_input_tokens"] == 300
+    assert row["total_output_tokens"] == 200
+    # avg_score (3.0) / total_cost (0.04) = 75
+    assert row["score_per_dollar"] == pytest.approx(75.0)
+
+
+def test_leaderboard_score_per_dollar_null_when_no_cost(store):
+    store.save("v1", "c1", 4, "good")
+    board = store.leaderboard()
+    assert board[0]["score_per_dollar"] is None
+
+
+def test_store_migrates_legacy_schema(tmp_path):
+    """Existing databases without cost columns get them added on init."""
+    db_path = tmp_path / "legacy.db"
+    legacy = sqlite_utils.Database(db_path)
+    legacy["results"].create(
+        {
+            "version": str,
+            "case_id": str,
+            "score": int,
+            "reasoning": str,
+            "run_at": str,
+        }
+    )
+    legacy["results"].insert(
+        {
+            "version": "old",
+            "case_id": "c1",
+            "score": 5,
+            "reasoning": "pre-migration row",
+            "run_at": "2025-01-01T00:00:00",
+        }
+    )
+
+    store = ResultStore(db_path=db_path)
+    columns = set(store.db["results"].columns_dict)
+    assert {"model_used", "input_tokens", "output_tokens", "cost_usd"} <= columns
+
+    # legacy row survives, new row coexists with cost data
+    store.save("new", "c2", 4, "post", cost_usd=0.01)
+    rows = store.results()
+    assert len(rows) == 2

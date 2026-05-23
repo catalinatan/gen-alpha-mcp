@@ -37,7 +37,13 @@ def run(
 
 
 @app.command()
-def leaderboard() -> None:
+def leaderboard(
+    show_cost: bool = typer.Option(
+        False,
+        "--show-cost",
+        help="Include total cost, average cost per case, and score-per-dollar.",
+    ),
+) -> None:
     """Show scores across all prompt versions"""
     rows = ResultStore().leaderboard()
     if not rows:
@@ -48,13 +54,25 @@ def leaderboard() -> None:
     table.add_column("Version")
     table.add_column("Avg Score", justify="right")
     table.add_column("Cases", justify="right")
+    if show_cost:
+        table.add_column("Total $", justify="right")
+        table.add_column("Avg $/case", justify="right")
+        table.add_column("Score/$", justify="right")
 
     for row in rows:
-        table.add_row(
+        cells = [
             row["version"],
             f"{row['avg_score']:.2f}",
             str(row["cases"]),
-        )
+        ]
+        if show_cost:
+            total = row.get("total_cost_usd") or 0.0
+            avg = row.get("avg_cost_usd") or 0.0
+            spd = row.get("score_per_dollar")
+            cells.append(f"${total:.4f}")
+            cells.append(f"${avg:.4f}")
+            cells.append(f"{spd:.1f}" if spd else "—")
+        table.add_row(*cells)
     console.print(table)
 
 

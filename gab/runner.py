@@ -10,6 +10,49 @@ client: Any | None = None
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
+SONNET = "claude-sonnet-4-6"
+HAIKU = "claude-haiku-4-5"
+
+# USD per million tokens. Update when Anthropic pricing changes.
+MODEL_PRICING_USD_PER_MTOK = {
+    SONNET: {"input": 3.0, "output": 15.0},
+    HAIKU: {"input": 1.0, "output": 5.0},
+}
+
+
+def pick_model(case: dict) -> str:
+    """Route simple cases to Haiku, complex ones to Sonnet.
+
+    A case is "complex" if any of:
+    - the expression is 3+ words (compound slang, more context needed),
+    - it has 5+ criteria to satisfy,
+    - the target audience description is 60+ characters (ambiguous framing).
+    """
+    expression_words = len(case.get("expression", "").split())
+    criteria_count = len(case.get("criteria", []) or [])
+    audience_len = len(case.get("target_audience", "") or "")
+    is_complex = expression_words >= 3 or criteria_count >= 5 or audience_len >= 60
+    return SONNET if is_complex else HAIKU
+
+
+def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
+    pricing = MODEL_PRICING_USD_PER_MTOK.get(model)
+    if not pricing:
+        return 0.0
+    return (
+        input_tokens * pricing["input"] + output_tokens * pricing["output"]
+    ) / 1_000_000
+
+
+def _usage_tokens(response: Any) -> tuple[int, int]:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return 0, 0
+    return (
+        int(getattr(usage, "input_tokens", 0) or 0),
+        int(getattr(usage, "output_tokens", 0) or 0),
+    )
+
 
 def get_client() -> Any:
     global client
@@ -20,25 +63,43 @@ def get_client() -> Any:
     return client
 
 
-class SafeFormatDict(dict):
-    def __missing__(self, key: str) -> str:
-        return "{" + key + "}"
+def _literal_brace(field: str, spec: str, conv: str | None) -> str:
+    piece = "{" + field
+    if conv:
+        piece += "!" + conv
+    if spec:
+        piece += ":" + spec
+    return piece + "}"
 
 
 def render_prompt(template: str, case: dict) -> str:
-    fields = {
-        name
-        for _, name, _, _ in Formatter().parse(template)
-        if name and name.isidentifier()
+    tokens = list(Formatter().parse(template))
+    required = {
+        field
+        for _, field, spec, _ in tokens
+        if field and field.isidentifier() and not spec
     }
-    missing = sorted(field for field in fields if field not in case)
+    missing = sorted(required - case.keys())
     if missing:
         raise KeyError(
             f"Golden set case {case.get('id', '<unknown>')} "
             f"is missing fields: {', '.join(missing)}"
         )
 
-    return template.format_map(SafeFormatDict(case))
+    out: list[str] = []
+    formatter = Formatter()
+    for literal, field, spec, conv in tokens:
+        out.append(literal)
+        if field is None:
+            continue
+        if field in case:
+            value = case[field]
+            if conv:
+                value = formatter.convert_field(value, conv)
+            out.append(format(value, spec or ""))
+        else:
+            out.append(_literal_brace(field, spec or "", conv))
+    return "".join(out)
 
 
 def _response_text(response) -> str:
@@ -83,12 +144,15 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
 
         filled_prompt = render_prompt(prompt_template, case)
 
+        model = pick_model(case)
         response = get_client().messages.create(
-            model="claude-sonnet-4-6",
+            model=model,
             max_tokens=1000,
             messages=[{"role": "user", "content": filled_prompt}],
         )
         output = _response_text(response)
+        input_tokens, output_tokens = _usage_tokens(response)
+        cost_usd = estimate_cost_usd(model, input_tokens, output_tokens)
 
         judgment = judge(
             expression=case["expression"],
@@ -106,6 +170,10 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
                 "reasoning": judgment.reasoning,
                 "criteria_met": judgment.criteria_met,
                 "criteria_failed": judgment.criteria_failed,
+                "model_used": model,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "cost_usd": cost_usd,
             }
         )
 
@@ -116,5 +184,9 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
             case_id=result["id"],
             score=result["score"],
             reasoning=result["reasoning"],
+            model_used=result["model_used"],
+            input_tokens=result["input_tokens"],
+            output_tokens=result["output_tokens"],
+            cost_usd=result["cost_usd"],
         )
     return results
