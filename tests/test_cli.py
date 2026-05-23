@@ -45,6 +45,30 @@ def test_run_no_golden_file_errors():
     assert result.exit_code != 0
 
 
+def _fake_results(*scores):
+    return [{"score": s} for s in scores]
+
+
+def test_run_fail_below_exits_nonzero_when_avg_under_threshold():
+    with patch("gab.cli.run_eval", return_value=_fake_results(2, 3, 3)):
+        result = runner.invoke(app, ["run", "v1", "--fail-below", "3.5"])
+    assert result.exit_code == 1
+    assert "Quality gate failed" in result.output
+
+
+def test_run_fail_below_passes_when_avg_meets_threshold():
+    with patch("gab.cli.run_eval", return_value=_fake_results(4, 4, 3)):
+        result = runner.invoke(app, ["run", "v1", "--fail-below", "3.5"])
+    assert result.exit_code == 0
+    assert "Quality gate failed" not in result.output
+
+
+def test_run_without_fail_below_does_not_gate():
+    with patch("gab.cli.run_eval", return_value=_fake_results(1, 1, 1)):
+        result = runner.invoke(app, ["run", "v1"])
+    assert result.exit_code == 0
+
+
 def test_leaderboard_show_cost_renders_cost_columns(tmp_path):
     store = ResultStore(tmp_path / "test.db")
     store.save("v1", "c1", 4, "good", cost_usd=0.01, input_tokens=100, output_tokens=50)
