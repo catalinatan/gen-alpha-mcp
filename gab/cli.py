@@ -24,6 +24,11 @@ def run(
         "-p",
         help="Path to the prompt template file.",
     ),
+    fail_below: float | None = typer.Option(
+        None,
+        "--fail-below",
+        help="Exit with code 1 if the average score is below this threshold.",
+    ),
 ) -> None:
     """Run eval against a golden set"""
     results = run_eval(golden, prompt, version)
@@ -34,6 +39,13 @@ def run(
     avg = sum(result["score"] for result in results) / len(results)
     console.print(f"[green]Version {version}: avg score {avg:.2f}/5[/green]")
     console.print(f"[dim]Saved to results.db (version={version})[/dim]")
+
+    if fail_below is not None and avg < fail_below:
+        console.print(
+            f"[red]Quality gate failed: "
+            f"avg score {avg:.2f} < threshold {fail_below}[/red]"
+        )
+        raise typer.Exit(code=1)
 
 
 @app.command()

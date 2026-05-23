@@ -24,3 +24,11 @@ jobs:
 
       - name: Format
         run: ruff format --check .
+
+      - name: Tests
+        run: pytest
+
+      - name: Eval quality gate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: gab run v3 --fail-below 3.5
