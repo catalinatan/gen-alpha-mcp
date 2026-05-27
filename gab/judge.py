@@ -110,5 +110,11 @@ def judge(
             tool_input = getattr(block, "input", None) or (
                 block.get("input", {}) if isinstance(block, dict) else {}
             )
+            tool_input = {
+                "reasoning": "Judge returned a score without reasoning.",
+                "criteria_met": [],
+                "criteria_failed": [],
+                **tool_input,
+            }
             return JudgeResult.model_validate(tool_input)
     raise ValueError("Judge model did not call submit_judgment tool")
