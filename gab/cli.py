@@ -37,7 +37,10 @@ def run(
     ),
 ) -> None:
     """Run eval against a golden set"""
-    results = run_agentic_set(golden, prompt, version) if agentic else run_eval(golden, prompt, version)
+    if agentic:
+        results = run_agentic_set(golden, prompt, version)
+    else:
+        results = run_eval(golden, prompt, version)
     if not results:
         console.print(f"[yellow]Version {version}: no cases were evaluated[/yellow]")
         raise typer.Exit(code=1)

@@ -23,13 +23,17 @@ class JudgeResult(BaseModel):
 
 _SUBMIT_JUDGMENT_TOOL: dict[str, Any] = {
     "name": "submit_judgment",
-    "description": "Submit the structured evaluation judgment for the candidate output.",
+    "description": (
+        "Submit the structured evaluation judgment for the candidate output."
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
             "score": {
                 "type": "integer",
-                "description": "Score from 1 (fails entirely) to 5 (fully meets all criteria).",
+                "description": (
+                    "Score from 1 (fails entirely) to 5 (fully meets all criteria)."
+                ),
                 "minimum": 1,
                 "maximum": 5,
             },

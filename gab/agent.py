@@ -23,7 +23,10 @@ _GET_TEST_CASES_TOOL: dict[str, Any] = {
             "fields": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": "Case fields to return (expression, context, target_audience, criteria). Defaults to all if omitted.",
+                "description": (
+                    "Case fields to return (expression, context, target_audience, "
+                    "criteria). Defaults to all if omitted."
+                ),
             }
         },
         "required": [],
@@ -34,7 +37,8 @@ _SCORE_OUTPUT_TOOL: dict[str, Any] = {
     "name": "score_output",
     "description": (
         "Score a candidate output against the evaluation criteria. "
-        "Returns a structured judgment with score (1-5), reasoning, and per-criterion results."
+        "Returns a structured judgment with score (1-5), reasoning, "
+        "and per-criterion results."
     ),
     "input_schema": {
         "type": "object",
@@ -50,13 +54,17 @@ _SCORE_OUTPUT_TOOL: dict[str, Any] = {
 
 _FLAG_AMBIGUOUS_TOOL: dict[str, Any] = {
     "name": "flag_ambiguous",
-    "description": "Flag this case as ambiguous, recording a reason and a provisional score.",
+    "description": (
+        "Flag this case as ambiguous, recording a reason and a provisional score."
+    ),
     "input_schema": {
         "type": "object",
         "properties": {
             "reason": {
                 "type": "string",
-                "description": "Why this case is ambiguous or hard to score definitively.",
+                "description": (
+                    "Why this case is ambiguous or hard to score definitively."
+                ),
             },
             "provisional_score": {
                 "type": "integer",
@@ -143,7 +151,7 @@ def _extract_blocks(
 
 
 def run_agentic_eval(case: dict, prompt_template: str) -> dict:
-    """ReAct-style eval loop: agent reasons → picks a tool → observes result → decides next action.
+    """ReAct-style eval loop.
 
     The agent receives the task prompt and can call:
       - score_output(output) — invokes the judge on a candidate answer
@@ -188,7 +196,9 @@ def run_agentic_eval(case: dict, prompt_template: str) -> dict:
         if tool_use_blocks:
             tool_results = []
             for tool_id, tool_name, tool_input in tool_use_blocks:
-                result_str = _dispatch_tool(tool_name, tool_input, case, candidate_output)
+                result_str = _dispatch_tool(
+                    tool_name, tool_input, case, candidate_output
+                )
                 result_data = json.loads(result_str)
                 if tool_name == "score_output":
                     last_score_result = result_data
