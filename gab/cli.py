@@ -2,6 +2,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from gab.agent import run_agentic_set
 from gab.runner import run_eval
 from gab.store import ResultStore
 
@@ -29,9 +30,14 @@ def run(
         "--fail-below",
         help="Exit with code 1 if the average score is below this threshold.",
     ),
+    agentic: bool = typer.Option(
+        False,
+        "--agentic",
+        help="Use the ReAct-style agentic judge loop instead of a single judge call.",
+    ),
 ) -> None:
     """Run eval against a golden set"""
-    results = run_eval(golden, prompt, version)
+    results = run_agentic_set(golden, prompt, version) if agentic else run_eval(golden, prompt, version)
     if not results:
         console.print(f"[yellow]Version {version}: no cases were evaluated[/yellow]")
         raise typer.Exit(code=1)

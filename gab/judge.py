@@ -1,5 +1,3 @@
-import json
-import re
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -23,6 +21,37 @@ class JudgeResult(BaseModel):
     criteria_failed: list[str] = Field(default_factory=list)
 
 
+_SUBMIT_JUDGMENT_TOOL: dict[str, Any] = {
+    "name": "submit_judgment",
+    "description": "Submit the structured evaluation judgment for the candidate output.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "score": {
+                "type": "integer",
+                "description": "Score from 1 (fails entirely) to 5 (fully meets all criteria).",
+                "minimum": 1,
+                "maximum": 5,
+            },
+            "reasoning": {
+                "type": "string",
+                "description": "Brief explanation of the score.",
+            },
+            "criteria_met": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of criteria the output satisfied.",
+            },
+            "criteria_failed": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of criteria the output did not satisfy.",
+            },
+        },
+        "required": ["score", "reasoning", "criteria_met", "criteria_failed"],
+    },
+}
+
 JUDGE_PROMPT = """You are an impartial evaluator. Score the following AI output \
 for a Gen Alpha slang explanation task.
 
@@ -33,7 +62,7 @@ Criteria to check:
 {criteria}
 Actual output: {output}
 
-Return a score from 1-5 where:
+Rate from 1-5 where:
 5 = fully meets all criteria
 4 = meets most criteria, minor issues
 3 = partially meets criteria
@@ -41,48 +70,7 @@ Return a score from 1-5 where:
 1 = fails criteria entirely
 
 Be strict. A demo-quality answer that misses one criterion gets max 3.
-
-Return only valid JSON with this shape:
-{{
-  "score": 5,
-  "reasoning": "brief explanation of the score",
-  "criteria_met": ["criterion text"],
-  "criteria_failed": ["criterion text"]
-}}"""
-
-
-def _response_text(response) -> str:
-    return "".join(
-        block.get("text", "") if isinstance(block, dict) else block.text
-        for block in response.content
-        if (isinstance(block, dict) and block.get("type") == "text")
-        or (getattr(block, "type", None) == "text" and hasattr(block, "text"))
-    ).strip()
-
-
-def _parse_judge_result(text: str) -> JudgeResult:
-    def validate_json(raw: str) -> JudgeResult:
-        if hasattr(JudgeResult, "model_validate_json"):
-            return JudgeResult.model_validate_json(raw)
-        return JudgeResult.parse_raw(raw)
-
-    def validate_obj(obj: dict) -> JudgeResult:
-        if hasattr(JudgeResult, "model_validate"):
-            return JudgeResult.model_validate(obj)
-        return JudgeResult.parse_obj(obj)
-
-    try:
-        return validate_json(text)
-    except ValueError:
-        match = re.search(r"\{.*\}", text, re.DOTALL)
-        if not match:
-            raise ValueError(f"Judge response did not contain JSON: {text}") from None
-        try:
-            return validate_obj(json.loads(match.group(0)))
-        except ValueError as exc:
-            raise ValueError(
-                f"Judge response was not valid JudgeResult JSON: {text}"
-            ) from exc
+Call submit_judgment with your evaluation."""
 
 
 def judge(
@@ -95,6 +83,8 @@ def judge(
     response = get_client().messages.create(
         model="claude-sonnet-4-6",
         max_tokens=500,
+        tools=[_SUBMIT_JUDGMENT_TOOL],
+        tool_choice={"type": "tool", "name": "submit_judgment"},
         messages=[
             {
                 "role": "user",
@@ -108,4 +98,13 @@ def judge(
             }
         ],
     )
-    return _parse_judge_result(_response_text(response))
+    for block in response.content:
+        block_type = getattr(block, "type", None) or (
+            block.get("type") if isinstance(block, dict) else None
+        )
+        if block_type == "tool_use":
+            tool_input = getattr(block, "input", None) or (
+                block.get("input", {}) if isinstance(block, dict) else {}
+            )
+            return JudgeResult.model_validate(tool_input)
+    raise ValueError("Judge model did not call submit_judgment tool")

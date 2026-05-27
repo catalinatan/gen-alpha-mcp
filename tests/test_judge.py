@@ -1,36 +1,61 @@
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
 import pytest
 
-from gab.judge import JudgeResult, _parse_judge_result
-
-_VALID = (
-    '{"score": 4, "reasoning": "solid", '
-    '"criteria_met": ["clear"], "criteria_failed": []}'
-)
+from gab.judge import JudgeResult, judge
 
 
-def test_parse_clean_json():
-    result = _parse_judge_result(_VALID)
+def _tool_use_response(score, reasoning, criteria_met, criteria_failed):
+    block = SimpleNamespace(
+        type="tool_use",
+        name="submit_judgment",
+        input={
+            "score": score,
+            "reasoning": reasoning,
+            "criteria_met": criteria_met,
+            "criteria_failed": criteria_failed,
+        },
+    )
+    return SimpleNamespace(content=[block])
+
+
+def test_judge_extracts_from_tool_use():
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = _tool_use_response(
+        score=4,
+        reasoning="solid explanation",
+        criteria_met=["clear language"],
+        criteria_failed=[],
+    )
+    with patch("gab.judge.get_client", return_value=mock_client):
+        result = judge(
+            expression="no cap",
+            context="That's no cap fr fr",
+            target_audience="parents",
+            criteria=["uses plain English", "avoids jargon"],
+            output="It means 'no lie' or 'seriously'.",
+        )
     assert isinstance(result, JudgeResult)
     assert result.score == 4
-    assert result.reasoning == "solid"
-    assert result.criteria_met == ["clear"]
+    assert result.reasoning == "solid explanation"
+    assert result.criteria_met == ["clear language"]
     assert result.criteria_failed == []
 
 
-def test_parse_json_embedded_in_prose():
-    text = f"Here is my evaluation:\n{_VALID}\nThat's all."
-    result = _parse_judge_result(text)
-    assert result.score == 4
-
-
-def test_parse_no_json_raises():
-    with pytest.raises(ValueError):
-        _parse_judge_result("no json here at all")
-
-
-def test_parse_invalid_json_raises():
-    with pytest.raises(ValueError):
-        _parse_judge_result("{not: valid json}")
+def test_judge_raises_if_no_tool_use_block():
+    mock_client = MagicMock()
+    text_block = SimpleNamespace(type="text", text="Here's my evaluation: score 4")
+    mock_client.messages.create.return_value = SimpleNamespace(content=[text_block])
+    with patch("gab.judge.get_client", return_value=mock_client):
+        with pytest.raises(ValueError, match="submit_judgment"):
+            judge(
+                expression="slay",
+                context="you slay today",
+                target_audience="adults",
+                criteria=["accurate"],
+                output="it means to do well",
+            )
 
 
 @pytest.mark.parametrize("score", [0, 6])

@@ -13,7 +13,8 @@ A prompt evaluation harness for grading how well LLMs explain Gen Alpha slang �
 Core capabilities:
 
 - **Golden set evaluation** — runs a candidate prompt against a curated JSON test set of Gen Alpha expressions (`no cap`, `sigma`, `skibidi toilet`, etc.), each with its own audience and pass criteria
-- **LLM-as-judge scoring** — Claude Sonnet acts as the judge, returning structured JSON with a 1–5 score, reasoning, and per-criterion pass/fail breakdown
+- **LLM-as-judge scoring** — Claude Sonnet acts as the judge, returning structured output via Anthropic native tool use with a 1–5 score, reasoning, and per-criterion pass/fail breakdown
+- **Agentic eval loop** — an optional ReAct-style judge loop in `gab/agent.py` where the model reasons → calls a tool → observes the result → decides next action, up to a configurable step budget; enabled with `gab run --agentic`
 - **Tiered model routing** — a heuristic router in `runner.py` sends simple cases to Haiku and complex cases (multi-word slang, 5+ criteria, or ambiguous audience) to Sonnet, instead of paying Sonnet rates on every call
 - **Per-case cost tracking** — every result row stores `model_used`, `input_tokens`, `output_tokens`, and `cost_usd`, computed from `response.usage` and a per-model price table
 - **Versioned leaderboard** — every run is persisted to SQLite keyed by prompt version, so prompt iterations can be compared directly via `gab leaderboard`, with `--show-cost` adding total spend, per-case spend, and score-per-dollar columns
@@ -25,7 +26,8 @@ Core capabilities:
 | Area | Detail |
 | --- | --- |
 | **MCP server** | [server/mcp_server.py](server/mcp_server.py) registers three tools on a `FastMCP` instance; path traversal is blocked by a regex allow-list on dataset names and a `is_relative_to` check on the resolved path |
-| **LLM-as-judge pipeline** | [gab/judge.py](gab/judge.py) prompts Claude with structured criteria and parses the response via Pydantic; falls back to regex-extracted JSON if the model wraps its answer in prose |
+| **Native tool-use judge** | [gab/judge.py](gab/judge.py) defines a `submit_judgment` tool with a typed JSON schema and passes `tool_choice={"type": "tool", "name": "submit_judgment"}` to force the model to always call it; the result is extracted directly from the `tool_use` block and validated with Pydantic — no text parsing, no regex fallback |
+| **Agentic eval loop** | [gab/agent.py](gab/agent.py) runs a ReAct loop (up to `MAX_STEPS=5`) where the agent receives the task prompt and three tools: `score_output` (invokes the judge), `get_test_cases` (retrieves case fields for context), and `flag_ambiguous` (records a provisional score with a reason); the loop exits when `stop_reason == "end_turn"` and the final judgment is resolved from the last `score_output` result, a flagged provisional score, or a direct judge fallback |
 | **Model router** | `pick_model(case)` in [gab/runner.py](gab/runner.py) inspects expression word count, criteria count, and audience description length to route between Haiku (cheap, simple) and Sonnet (expensive, complex). Pricing lives in a single `MODEL_PRICING_USD_PER_MTOK` table so it can be retuned without touching call sites |
 | **Cost capture** | `response.usage.input_tokens` and `output_tokens` are pulled from the Anthropic SDK response, multiplied by the per-model price, and persisted alongside `model_used`. The leaderboard exposes `score_per_dollar` as `AVG(score) / SUM(cost_usd)` so prompt versions can be compared by economic efficiency, not just raw quality |
 | **Safe prompt templating** | [gab/runner.py](gab/runner.py) walks `string.Formatter().parse()` to require every bare `{field}` placeholder and preserve any `{field:format-spec}` ones verbatim when the value isn't supplied, raising a descriptive `KeyError` only for missing required fields |
@@ -33,7 +35,7 @@ Core capabilities:
 | **Versioned result store** | [gab/store.py](gab/store.py) uses `sqlite-utils` with a regex-validated version key, indexed by `version`, `case_id`, `score`, and ISO-8601 `run_at` timestamp |
 | **Leaderboard SQL** | Single grouped query aggregates `AVG(score)` and case counts per prompt version, ordered descending — no Python-side reduction |
 | **Typer + Rich CLI** | [gab/cli.py](gab/cli.py) exposes `gab run <version>` and `gab leaderboard`, with colourised output and a Rich table for the leaderboard view |
-| **Test coverage** | Six pytest files cover the CLI (mocked Anthropic), judge parser (clean JSON / embedded JSON / invalid JSON), runner template safety, store CRUD + leaderboard ordering, and MCP server path validation |
+| **Test coverage** | Seven pytest files cover the CLI (mocked Anthropic), judge tool-use extraction and error path, runner template safety, store CRUD + leaderboard ordering, and MCP server path validation |
 | **CI on GitHub Actions** | `ruff check .` and `ruff format --check .` enforced on every push and pull request |
 
 ## Tech Stack
@@ -41,7 +43,7 @@ Core capabilities:
 | Layer | Technology |
 | --- | --- |
 | Runtime | Python 3.11+ |
-| LLM provider | Anthropic Claude (Sonnet 4.6) via `anthropic` SDK |
+| LLM provider | Anthropic Claude (Sonnet 4.6 / Haiku 4.5) via `anthropic` SDK |
 | Protocol | Model Context Protocol via `mcp` (`FastMCP`) |
 | CLI | Typer + Rich |
 | Storage | SQLite via `sqlite-utils` |
@@ -55,9 +57,10 @@ Core capabilities:
 ```
 .
 ├── gab/                        # Eval harness package
+│   ├── agent.py                # ReAct-style agentic eval loop
 │   ├── cli.py                  # Typer CLI: `gab run`, `gab leaderboard`
+│   ├── judge.py                # LLM-as-judge scoring via native tool use
 │   ├── runner.py               # Prompt rendering + Anthropic call loop
-│   ├── judge.py                # LLM-as-judge scoring + Pydantic parsing
 │   └── store.py                # SQLite result persistence + leaderboard query
 ├── server/
 │   └── mcp_server.py           # FastMCP server exposing eval tools
@@ -102,9 +105,13 @@ cp .env.example .env
 gab run v1                              # uses prompts/v1.txt and golden_sets/gen_alpha.json
 gab run v2 --prompt prompts/v2.txt      # score a different prompt version
 gab run v3 -p prompts/v3.txt -g golden_sets/gen_alpha.json
+gab run v1 --agentic                    # ReAct-style agentic judge loop
+gab run v1 --agentic --fail-below 3.5   # agentic loop + quality gate
 ```
 
-Each run scores every case in the golden set via the judge model and persists results to `results.db` under the supplied version label.
+Each run scores every case in the golden set and persists results to `results.db` under the supplied version label.
+
+The standard path makes one generation call and one judge call per case. The `--agentic` path runs a ReAct loop: the agent receives the task prompt and three tools (`score_output`, `get_test_cases`, `flag_ambiguous`), reasons through the output, and calls `score_output` to invoke the judge — repeating up to five steps until it signals `end_turn`. Both paths write to the same `results.db` schema and appear on the same leaderboard.
 
 ### View the leaderboard
 
@@ -129,7 +136,7 @@ The server exposes three tools — `get_test_cases(dataset)`, `save_result(versi
 pytest
 ```
 
-The suite covers CLI invocation (with mocked Anthropic calls), judge JSON parsing edge cases, prompt rendering safety, store CRUD + leaderboard aggregation, and MCP server path validation.
+The suite covers CLI invocation (with mocked Anthropic calls), judge tool-use extraction and the no-tool-call error path, prompt rendering safety, store CRUD + leaderboard aggregation, and MCP server path validation.
 
 ```bash
 ruff check .
