@@ -8,9 +8,9 @@ from gab.runner import (
     _response_text,
     estimate_cost_usd,
     pick_model,
-    retrieve_few_shot_cases,
     render_prompt,
     resolve_input_path,
+    retrieve_few_shot_cases,
 )
 
 

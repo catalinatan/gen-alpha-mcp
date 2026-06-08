@@ -7,9 +7,9 @@ from gab.runner import (
     estimate_cost_usd,
     get_client,
     pick_model,
-    retrieve_few_shot_cases,
     render_prompt,
     resolve_input_path,
+    retrieve_few_shot_cases,
 )
 from gab.store import ResultStore, validate_version
 

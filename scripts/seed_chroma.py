@@ -7,8 +7,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from gab.runner import resolve_input_path
-from gab.vector_store import (
+from gab.runner import resolve_input_path  # noqa: E402
+from gab.vector_store import (  # noqa: E402
     DEFAULT_CHROMA_DIR,
     DEFAULT_COLLECTION,
     DEFAULT_EMBEDDING_MODEL,
