@@ -40,8 +40,7 @@ def run(
         "--few-shot-k",
         min=0,
         help=(
-            "Number of semantically similar golden cases to retrieve for "
-            "judge context."
+            "Number of semantically similar golden cases to retrieve for judge context."
         ),
     ),
 ) -> None:
