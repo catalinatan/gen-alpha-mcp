@@ -24,6 +24,8 @@ def test_save_and_retrieve(store):
     assert rows[0]["case_id"] == "case-1"
     assert rows[0]["score"] == 4
     assert rows[0]["reasoning"] == "looks good"
+    assert rows[0]["flagged"] == 0
+    assert rows[0]["ambiguity_reason"] == ""
     assert "run_at" in rows[0]
 
 
@@ -50,6 +52,7 @@ def test_leaderboard_aggregates(store):
     assert len(board) == 1
     assert board[0]["avg_score"] == pytest.approx(3.0)
     assert board[0]["cases"] == 2
+    assert board[0]["ambiguous_cases"] == 0
 
 
 def test_leaderboard_empty(store):
@@ -81,6 +84,35 @@ def test_save_defaults_cost_columns_to_zero(store):
     assert rows[0]["input_tokens"] == 0
     assert rows[0]["output_tokens"] == 0
     assert rows[0]["cost_usd"] == 0.0
+
+
+def test_save_persists_ambiguity_columns(store):
+    store.save(
+        "v1",
+        "case-1",
+        3,
+        "[AMBIGUOUS] tone unclear",
+        flagged=True,
+        ambiguity_reason="tone unclear",
+    )
+    rows = store.results()
+    assert rows[0]["flagged"] == 1
+    assert rows[0]["ambiguity_reason"] == "tone unclear"
+
+
+def test_leaderboard_counts_ambiguous_cases(store):
+    store.save("v1", "c1", 4, "good")
+    store.save("v1", "c2", 3, "unclear", flagged=True)
+    board = store.leaderboard()
+    assert board[0]["ambiguous_cases"] == 1
+
+
+def test_ambiguous_results_filters_by_version(store):
+    store.save("v1", "c1", 3, "unclear", flagged=True)
+    store.save("v1", "c2", 4, "good")
+    store.save("v2", "c3", 2, "unclear", flagged=True)
+    assert [row["case_id"] for row in store.ambiguous_results("v1")] == ["c1"]
+    assert {row["case_id"] for row in store.ambiguous_results()} == {"c1", "c3"}
 
 
 def test_leaderboard_aggregates_cost(store):
@@ -127,7 +159,14 @@ def test_store_migrates_legacy_schema(tmp_path):
 
     store = ResultStore(db_path=db_path)
     columns = set(store.db["results"].columns_dict)
-    assert {"model_used", "input_tokens", "output_tokens", "cost_usd"} <= columns
+    assert {
+        "model_used",
+        "input_tokens",
+        "output_tokens",
+        "cost_usd",
+        "flagged",
+        "ambiguity_reason",
+    } <= columns
 
     # legacy row survives, new row coexists with cost data
     store.save("new", "c2", 4, "post", cost_usd=0.01)

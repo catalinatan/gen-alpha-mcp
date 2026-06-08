@@ -5,6 +5,7 @@ from typing import Any
 
 from gab.judge import judge
 from gab.store import ResultStore, validate_version
+from gab.vector_store import case_document, relevant_cases
 
 client: Any | None = None
 
@@ -123,7 +124,28 @@ def resolve_input_path(path: str) -> Path:
     return candidate
 
 
-def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]:
+def retrieve_few_shot_cases(
+    case: dict,
+    query: str,
+    top_k: int,
+    dataset: str = "gen_alpha",
+) -> list[dict]:
+    if top_k <= 0:
+        return []
+    return relevant_cases(
+        query=query or case_document(case),
+        dataset=dataset,
+        top_k=top_k,
+        exclude_case_id=case.get("id"),
+    )
+
+
+def run_eval(
+    golden_set_path: str,
+    prompt_path: str,
+    version: str,
+    few_shot_k: int = 3,
+) -> list[dict]:
     validate_version(version)
 
     golden = json.loads(resolve_input_path(golden_set_path).read_text(encoding="utf-8"))
@@ -160,6 +182,7 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
             target_audience=case["target_audience"],
             criteria=case["criteria"],
             output=output,
+            few_shot_cases=retrieve_few_shot_cases(case, filled_prompt, few_shot_k),
         )
         results.append(
             {
@@ -174,6 +197,8 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
                 "cost_usd": cost_usd,
+                "flagged": False,
+                "ambiguity_reason": "",
             }
         )
 
@@ -188,5 +213,7 @@ def run_eval(golden_set_path: str, prompt_path: str, version: str) -> list[dict]
             input_tokens=result["input_tokens"],
             output_tokens=result["output_tokens"],
             cost_usd=result["cost_usd"],
+            flagged=result["flagged"],
+            ambiguity_reason=result["ambiguity_reason"],
         )
     return results

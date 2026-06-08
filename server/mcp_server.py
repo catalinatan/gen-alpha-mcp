@@ -5,6 +5,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from gab.store import ResultStore
+from gab.vector_store import relevant_cases
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 GOLDEN_SETS_DIR = ROOT_DIR / "golden_sets"
@@ -33,6 +34,17 @@ def get_test_cases(dataset: str) -> list[dict]:
     """Fetch test cases from a named golden set"""
     path = dataset_path(dataset)
     return json.loads(path.read_text())
+
+
+@mcp.tool()
+def get_relevant_test_cases(
+    query: str,
+    dataset: str = "gen_alpha",
+    top_k: int = 3,
+) -> list[dict]:
+    """Fetch semantically similar golden cases from the local Chroma index."""
+    dataset_path(dataset)
+    return relevant_cases(query=query, dataset=dataset, top_k=top_k)
 
 
 @mcp.tool()

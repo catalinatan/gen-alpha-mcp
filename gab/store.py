@@ -24,6 +24,8 @@ _SCHEMA = {
     "input_tokens": int,
     "output_tokens": int,
     "cost_usd": float,
+    "flagged": bool,
+    "ambiguity_reason": str,
 }
 
 # Columns added after the initial release; existing databases need them backfilled.
@@ -32,6 +34,8 @@ _MIGRATABLE_COLUMNS = {
     "input_tokens": int,
     "output_tokens": int,
     "cost_usd": float,
+    "flagged": bool,
+    "ambiguity_reason": str,
 }
 
 
@@ -55,6 +59,8 @@ class ResultStore:
         input_tokens: int = 0,
         output_tokens: int = 0,
         cost_usd: float = 0.0,
+        flagged: bool = False,
+        ambiguity_reason: str = "",
     ) -> None:
         self.db["results"].insert(
             {
@@ -67,6 +73,8 @@ class ResultStore:
                 "input_tokens": input_tokens,
                 "output_tokens": output_tokens,
                 "cost_usd": cost_usd,
+                "flagged": flagged,
+                "ambiguity_reason": ambiguity_reason,
             }
         )
 
@@ -76,6 +84,8 @@ class ResultStore:
                 "SELECT version, "
                 "AVG(score) AS avg_score, "
                 "COUNT(*) AS cases, "
+                "SUM(CASE WHEN COALESCE(flagged, 0) THEN 1 ELSE 0 END) "
+                "AS ambiguous_cases, "
                 "SUM(COALESCE(cost_usd, 0)) AS total_cost_usd, "
                 "AVG(COALESCE(cost_usd, 0)) AS avg_cost_usd, "
                 "SUM(COALESCE(input_tokens, 0)) AS total_input_tokens, "
@@ -91,3 +101,11 @@ class ResultStore:
         if version is None:
             return list(self.db["results"].rows)
         return list(self.db["results"].rows_where("version = ?", [version]))
+
+    def ambiguous_results(self, version: str | None = None) -> list[dict]:
+        where = "COALESCE(flagged, 0) = 1"
+        params: list[str] = []
+        if version is not None:
+            where += " AND version = ?"
+            params.append(version)
+        return list(self.db["results"].rows_where(where, params))

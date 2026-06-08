@@ -35,18 +35,33 @@ def run(
         "--agentic",
         help="Use the ReAct-style agentic judge loop instead of a single judge call.",
     ),
+    few_shot_k: int = typer.Option(
+        3,
+        "--few-shot-k",
+        min=0,
+        help=(
+            "Number of semantically similar golden cases to retrieve for "
+            "judge context."
+        ),
+    ),
 ) -> None:
     """Run eval against a golden set"""
     if agentic:
-        results = run_agentic_set(golden, prompt, version)
+        results = run_agentic_set(golden, prompt, version, few_shot_k=few_shot_k)
     else:
-        results = run_eval(golden, prompt, version)
+        results = run_eval(golden, prompt, version, few_shot_k=few_shot_k)
     if not results:
         console.print(f"[yellow]Version {version}: no cases were evaluated[/yellow]")
         raise typer.Exit(code=1)
 
     avg = sum(result["score"] for result in results) / len(results)
+    ambiguous = sum(1 for result in results if result.get("flagged"))
     console.print(f"[green]Version {version}: avg score {avg:.2f}/5[/green]")
+    if ambiguous:
+        console.print(
+            f"[yellow]Flagged {ambiguous}/{len(results)} ambiguous cases "
+            "for review[/yellow]"
+        )
     console.print(f"[dim]Saved to results.db (version={version})[/dim]")
 
     if fail_below is not None and avg < fail_below:
@@ -75,6 +90,7 @@ def leaderboard(
     table.add_column("Version")
     table.add_column("Avg Score", justify="right")
     table.add_column("Cases", justify="right")
+    table.add_column("Ambiguous", justify="right")
     if show_cost:
         table.add_column("Total $", justify="right")
         table.add_column("Avg $/case", justify="right")
@@ -85,6 +101,7 @@ def leaderboard(
             row["version"],
             f"{row['avg_score']:.2f}",
             str(row["cases"]),
+            str(row.get("ambiguous_cases") or 0),
         ]
         if show_cost:
             total = row.get("total_cost_usd") or 0.0
@@ -94,6 +111,36 @@ def leaderboard(
             cells.append(f"${avg:.4f}")
             cells.append(f"{spd:.1f}" if spd else "—")
         table.add_row(*cells)
+    console.print(table)
+
+
+@app.command()
+def ambiguous(
+    version: str | None = typer.Argument(
+        None,
+        help="Optional version to inspect. Shows all ambiguous cases when omitted.",
+    ),
+) -> None:
+    """Show cases flagged as ambiguous for human review"""
+    rows = ResultStore().ambiguous_results(version)
+    if not rows:
+        scope = f" for version {version}" if version else ""
+        console.print(f"[green]No ambiguous cases found{scope}.[/green]")
+        return
+
+    table = Table(title="Ambiguous Cases")
+    table.add_column("Version")
+    table.add_column("Case")
+    table.add_column("Score", justify="right")
+    table.add_column("Reason")
+
+    for row in rows:
+        table.add_row(
+            row["version"],
+            row["case_id"],
+            str(row["score"]),
+            row.get("ambiguity_reason") or row["reasoning"],
+        )
     console.print(table)
 
 

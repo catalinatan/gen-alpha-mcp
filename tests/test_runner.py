@@ -8,6 +8,7 @@ from gab.runner import (
     _response_text,
     estimate_cost_usd,
     pick_model,
+    retrieve_few_shot_cases,
     render_prompt,
     resolve_input_path,
 )
@@ -116,3 +117,31 @@ def test_estimate_cost_haiku_cheaper_than_sonnet():
 
 def test_estimate_cost_unknown_model_returns_zero():
     assert estimate_cost_usd("claude-mystery-9", 1000, 500) == 0.0
+
+
+def test_retrieve_few_shot_cases_delegates_to_vector_store(monkeypatch):
+    calls = []
+
+    def fake_relevant_cases(**kwargs):
+        calls.append(kwargs)
+        return [{"id": "ga_002"}]
+
+    monkeypatch.setattr("gab.runner.relevant_cases", fake_relevant_cases)
+    result = retrieve_few_shot_cases(
+        {"id": "ga_001", "expression": "no cap"},
+        query="Explain no cap",
+        top_k=2,
+    )
+
+    assert result == [{"id": "ga_002"}]
+    assert calls[0]["query"] == "Explain no cap"
+    assert calls[0]["top_k"] == 2
+    assert calls[0]["exclude_case_id"] == "ga_001"
+
+
+def test_retrieve_few_shot_cases_disabled_when_top_k_zero(monkeypatch):
+    def fail_if_called(**_kwargs):
+        raise AssertionError("retrieval should not run")
+
+    monkeypatch.setattr("gab.runner.relevant_cases", fail_if_called)
+    assert retrieve_few_shot_cases({}, query="unused", top_k=0) == []

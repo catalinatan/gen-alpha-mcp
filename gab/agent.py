@@ -7,6 +7,7 @@ from gab.runner import (
     estimate_cost_usd,
     get_client,
     pick_model,
+    retrieve_few_shot_cases,
     render_prompt,
     resolve_input_path,
 )
@@ -81,7 +82,12 @@ _TOOLS = [_GET_TEST_CASES_TOOL, _SCORE_OUTPUT_TOOL, _FLAG_AMBIGUOUS_TOOL]
 
 
 def _dispatch_tool(
-    tool_name: str, tool_input: dict, case: dict, candidate_output: str
+    tool_name: str,
+    tool_input: dict,
+    case: dict,
+    candidate_output: str,
+    query: str,
+    few_shot_k: int,
 ) -> str:
     if tool_name == "get_test_cases":
         requested = tool_input.get("fields") or list(case.keys())
@@ -95,6 +101,7 @@ def _dispatch_tool(
             target_audience=case["target_audience"],
             criteria=case["criteria"],
             output=output,
+            few_shot_cases=retrieve_few_shot_cases(case, query, few_shot_k),
         )
         return json.dumps(
             {
@@ -150,7 +157,7 @@ def _extract_blocks(
     return assistant_content, tool_use_blocks
 
 
-def run_agentic_eval(case: dict, prompt_template: str) -> dict:
+def run_agentic_eval(case: dict, prompt_template: str, few_shot_k: int = 3) -> dict:
     """ReAct-style eval loop.
 
     The agent receives the task prompt and can call:
@@ -197,7 +204,12 @@ def run_agentic_eval(case: dict, prompt_template: str) -> dict:
             tool_results = []
             for tool_id, tool_name, tool_input in tool_use_blocks:
                 result_str = _dispatch_tool(
-                    tool_name, tool_input, case, candidate_output
+                    tool_name,
+                    tool_input,
+                    case,
+                    candidate_output,
+                    filled,
+                    few_shot_k,
                 )
                 result_data = json.loads(result_str)
                 if tool_name == "score_output":
@@ -213,7 +225,14 @@ def run_agentic_eval(case: dict, prompt_template: str) -> dict:
                 )
             messages.append({"role": "user", "content": tool_results})
 
-    judgment = _build_judgment(case, candidate_output, last_score_result, flagged)
+    judgment = _build_judgment(
+        case,
+        candidate_output,
+        last_score_result,
+        flagged,
+        filled,
+        few_shot_k,
+    )
 
     return {
         "id": case["id"],
@@ -229,6 +248,7 @@ def run_agentic_eval(case: dict, prompt_template: str) -> dict:
         "cost_usd": estimate_cost_usd(model, total_input_tokens, total_output_tokens),
         "agentic": True,
         "flagged": flagged is not None,
+        "ambiguity_reason": flagged["reason"] if flagged else "",
     }
 
 
@@ -237,6 +257,8 @@ def _build_judgment(
     candidate_output: str,
     last_score_result: dict | None,
     flagged: dict | None,
+    query: str,
+    few_shot_k: int,
 ) -> JudgeResult:
     if last_score_result:
         return JudgeResult(
@@ -259,10 +281,16 @@ def _build_judgment(
         target_audience=case["target_audience"],
         criteria=case["criteria"],
         output=candidate_output,
+        few_shot_cases=retrieve_few_shot_cases(case, query, few_shot_k),
     )
 
 
-def run_agentic_set(golden_set_path: str, prompt_path: str, version: str) -> list[dict]:
+def run_agentic_set(
+    golden_set_path: str,
+    prompt_path: str,
+    version: str,
+    few_shot_k: int = 3,
+) -> list[dict]:
     """Run the agentic eval loop over every case in the golden set."""
     validate_version(version)
 
@@ -284,7 +312,7 @@ def run_agentic_set(golden_set_path: str, prompt_path: str, version: str) -> lis
         missing = sorted(required_fields - case.keys())
         if missing:
             raise KeyError(f"Golden set case is missing fields: {', '.join(missing)}")
-        results.append(run_agentic_eval(case, prompt_template))
+        results.append(run_agentic_eval(case, prompt_template, few_shot_k))
 
     store = ResultStore()
     for result in results:
@@ -297,5 +325,7 @@ def run_agentic_set(golden_set_path: str, prompt_path: str, version: str) -> lis
             input_tokens=result["input_tokens"],
             output_tokens=result["output_tokens"],
             cost_usd=result["cost_usd"],
+            flagged=result["flagged"],
+            ambiguity_reason=result["ambiguity_reason"],
         )
     return results

@@ -43,6 +43,37 @@ def test_judge_extracts_from_tool_use():
     assert result.criteria_failed == []
 
 
+def test_judge_includes_few_shot_cases_in_prompt():
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = _tool_use_response(
+        score=4,
+        reasoning="solid explanation",
+        criteria_met=[],
+        criteria_failed=[],
+    )
+    with patch("gab.judge.get_client", return_value=mock_client):
+        judge(
+            expression="rizz",
+            context="man's got rizz",
+            target_audience="adults",
+            criteria=["defines charisma"],
+            output="It means charisma.",
+            few_shot_cases=[
+                {
+                    "expression": "no cap",
+                    "context": "best demo no cap",
+                    "target_audience": "parent",
+                    "criteria": ["defines as for real"],
+                }
+            ],
+        )
+
+    prompt = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert "Retrieved golden cases for calibration" in prompt
+    assert "Expression: no cap" in prompt
+    assert "defines as for real" in prompt
+
+
 def test_judge_handles_score_only_tool_use():
     mock_client = MagicMock()
     block = SimpleNamespace(type="tool_use", name="submit_judgment", input={"score": 3})

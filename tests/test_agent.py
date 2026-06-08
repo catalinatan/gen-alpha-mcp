@@ -73,6 +73,7 @@ def test_agentic_eval_uses_score_output_tool_result_as_judgment():
 
     with (
         patch("gab.agent.get_client", return_value=client),
+        patch("gab.agent.retrieve_few_shot_cases", return_value=[]),
         patch(
             "gab.agent.judge",
             return_value=JudgeResult(
@@ -151,6 +152,7 @@ def test_agentic_eval_can_fetch_case_context_before_scoring():
 
     with (
         patch("gab.agent.get_client", return_value=client),
+        patch("gab.agent.retrieve_few_shot_cases", return_value=[]),
         patch(
             "gab.agent.judge",
             return_value=JudgeResult(
@@ -181,6 +183,7 @@ def test_agentic_eval_falls_back_to_direct_judge_when_no_tool_called():
 
     with (
         patch("gab.agent.get_client", return_value=client),
+        patch("gab.agent.retrieve_few_shot_cases", return_value=[]),
         patch(
             "gab.agent.judge",
             return_value=JudgeResult(

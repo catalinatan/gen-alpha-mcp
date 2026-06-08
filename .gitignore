@@ -206,6 +206,9 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Local vector index
+.chroma/
+
 # PyPI configuration file
 .pypirc
 

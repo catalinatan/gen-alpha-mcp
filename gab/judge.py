@@ -64,6 +64,9 @@ Example usage: {context}
 Target audience: {target_audience}
 Criteria to check:
 {criteria}
+
+Retrieved golden cases for calibration:
+{few_shot_context}
 Actual output: {output}
 
 Rate from 1-5 where:
@@ -77,12 +80,31 @@ Be strict. A demo-quality answer that misses one criterion gets max 3.
 Call submit_judgment with your evaluation."""
 
 
+def format_few_shot_cases(cases: list[dict] | None) -> str:
+    if not cases:
+        return "(none)"
+
+    blocks = []
+    for idx, case in enumerate(cases, start=1):
+        criteria = "\n".join(
+            f"     - {criterion}" for criterion in case.get("criteria", [])
+        )
+        blocks.append(
+            f"{idx}. Expression: {case.get('expression', '')}\n"
+            f"   Example usage: {case.get('context', '')}\n"
+            f"   Target audience: {case.get('target_audience', '')}\n"
+            f"   Criteria:\n{criteria}"
+        )
+    return "\n\n".join(blocks)
+
+
 def judge(
     expression: str,
     context: str,
     target_audience: str,
     criteria: list[str],
     output: str,
+    few_shot_cases: list[dict] | None = None,
 ) -> JudgeResult:
     response = get_client().messages.create(
         model="claude-sonnet-4-6",
@@ -97,6 +119,7 @@ def judge(
                     context=context,
                     target_audience=target_audience,
                     criteria="\n".join(f"- {criterion}" for criterion in criteria),
+                    few_shot_context=format_few_shot_cases(few_shot_cases),
                     output=output,
                 ),
             }
